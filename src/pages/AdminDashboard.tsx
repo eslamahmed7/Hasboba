@@ -1,429 +1,292 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Users, CreditCard, MessageSquare, Shield, CheckCircle2, AlertCircle, Settings, Tag, Bell, Plus, Trash2, Sparkles } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
-import { User } from '../types';
+import { useApp } from '../context/AppContext';
+import { Users, CreditCard, DollarSign, Activity, Bell, Settings, Search, Trash2, Edit2, CheckCircle, XCircle, ArrowUpRight, ArrowDownRight, UploadCloud, RefreshCw, X } from 'lucide-react';
+
+const ACCENT  = '#00adb5';
+const BG_BASE = '#0b1315';
+const BG_CARD = '#132226';
+const BORDER  = '#1e3035';
 
 export function AdminDashboard() {
-  const { user, appConfig, updateAppConfig, addPromoCode, deletePromoCode, addNotification } = useApp();
-  const [users, setUsers] = useState<User[]>([]);
+  const { user } = useApp();
+  const [stats, setStats] = useState({ totalUsers: 0, activeUsers: 0, proUsers: 0 });
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  // Pricing State
-  const [priceInput, setPriceInput] = useState(appConfig.aiSubscriptionPrice.toString());
-  const [discountInput, setDiscountInput] = useState(appConfig.aiSubscriptionDiscountPrice?.toString() || '');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'system'>('overview');
+  const [search, setSearch] = useState('');
   
-  // Promo Code State
-  const [promoCode, setPromoCode] = useState('');
-  const [promoDiscount, setPromoDiscount] = useState('');
-  const [promoDays, setPromoDays] = useState('7');
-  const [promoLimitType, setPromoLimitType] = useState<'unlimited' | 'limited'>('unlimited');
-  const [promoLimitCount, setPromoLimitCount] = useState('5');
-  
-  // Notification State
-  const [notifMessage, setNotifMessage] = useState('');
+  // System updates state
+  const [version, setVersion] = useState('');
+  const [changelog, setChangelog] = useState('');
+  const [downloadUrl, setDownloadUrl] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
+    fetchStats();
     fetchUsers();
   }, []);
+
+  const fetchStats = async () => {
+    try {
+      const { count: total } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+      const { count: pro } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('plan', 'pro');
+      setStats({
+        totalUsers: total || 0,
+        activeUsers: Math.floor((total || 0) * 0.8), // Mock active users
+        proUsers: pro || 0
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      
-      const mapped = (data || []).map(p => ({
-        id: p.id,
-        name: p.name,
-        email: p.email || '',
-        phone: p.phone || '',
-        country: p.country || 'مصر',
-        currency: p.currency || 'EGP',
-        currencySymbol: p.currency_symbol || 'ج.م',
-        payday: p.payday || 1,
-        theme: p.theme || 'dark',
-        plan: p.plan || 'free',
-        isAdmin: p.is_admin || false,
-      }));
-      setUsers(mapped);
-    } catch (err: any) {
-      console.error('Error fetching users:', err);
-      setError('تعذر جلب بيانات المستخدمين. تأكد من تعطيل RLS في Supabase للجدول profiles مؤقتاً.');
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (data) setUsers(data);
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleAdmin = async (targetId: string, currentStatus: boolean) => {
+  const toggleUserPlan = async (id: string, currentPlan: string) => {
+    const newPlan = currentPlan === 'pro' ? 'free' : 'pro';
     try {
-      await supabase.from('profiles').update({ is_admin: !currentStatus }).eq('id', targetId);
-      setUsers(prev => prev.map(u => u.id === targetId ? { ...u, isAdmin: !currentStatus } : u));
+      await supabase.from('profiles').update({ plan: newPlan }).eq('id', id);
+      setUsers(users.map(u => u.id === id ? { ...u, plan: newPlan } : u));
+      fetchStats();
     } catch (err) {
-      console.error('Error toggling admin:', err);
+      console.error(err);
     }
   };
 
-  const togglePlan = async (targetId: string, currentPlan: string) => {
+  const handlePushUpdate = async () => {
+    if (!version || !changelog || !downloadUrl) {
+      alert('يرجى تعبئة جميع الحقول');
+      return;
+    }
+    setIsUpdating(true);
     try {
-      const newPlan = currentPlan === 'pro' ? 'free' : 'pro';
-      await supabase.from('profiles').update({ plan: newPlan }).eq('id', targetId);
-      setUsers(prev => prev.map(u => u.id === targetId ? { ...u, plan: newPlan as 'free'|'pro' } : u));
-    } catch (err) {
-      console.error('Error toggling plan:', err);
+      const { error } = await supabase.from('app_version').insert({
+        version,
+        changelog,
+        download_url: downloadUrl,
+        is_mandatory: false
+      });
+      if (error) throw error;
+      alert('تم إرسال التحديث بنجاح لجميع المستخدمين!');
+      setVersion(''); setChangelog(''); setDownloadUrl('');
+    } catch (err: any) {
+      alert('خطأ: ' + err.message);
+    } finally {
+      setIsUpdating(false);
     }
   };
+
+  const filteredUsers = users.filter(u => 
+    u.name?.toLowerCase().includes(search.toLowerCase()) || 
+    u.email?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const estRevenue = stats.proUsers * 150; // Mock revenue calculation
 
   if (!user?.isAdmin) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-        <Shield size={48} className="text-red-500 mb-4" />
-        <h2 className="text-xl font-bold text-white mb-2">غير مصرح لك</h2>
-        <p className="text-gray-400">هذه الصفحة مخصصة لمديري النظام فقط.</p>
+      <div className="flex flex-col items-center justify-center h-full text-center p-6" style={{ background: BG_BASE }}>
+        <XCircle size={48} style={{ color: '#f43f5e' }} className="mb-4" />
+        <h2 className="text-white font-bold text-xl mb-2">عذراً، غير مصرح لك</h2>
+        <p className="text-sm" style={{ color: '#6a9ca2' }}>هذه الصفحة مخصصة للمديرين فقط.</p>
       </div>
     );
   }
 
-  const proUsers = users.filter(u => u.plan === 'pro').length;
-  const currentPrice = appConfig.aiSubscriptionDiscountPrice !== null ? appConfig.aiSubscriptionDiscountPrice : appConfig.aiSubscriptionPrice;
-  const estRevenue = proUsers * currentPrice;
-
-  const handleSavePricing = () => {
-    const p = parseFloat(priceInput);
-    const d = discountInput ? parseFloat(discountInput) : null;
-    if (!isNaN(p)) {
-      updateAppConfig({ aiSubscriptionPrice: p, aiSubscriptionDiscountPrice: isNaN(d as any) ? null : d });
-      alert('تم تحديث التسعير بنجاح');
-    }
-  };
-
-  const handleAddPromo = () => {
-    if (!promoCode || !promoDiscount) return;
-    const expires = new Date();
-    expires.setDate(expires.getDate() + (parseInt(promoDays) || 7));
-    addPromoCode({
-      code: promoCode.toUpperCase().trim(),
-      discountPercentage: parseFloat(promoDiscount),
-      expiresAt: expires.toISOString(),
-      isActive: true,
-      usageLimit: promoLimitType === 'limited' ? parseInt(promoLimitCount) || 1 : null,
-      usageCount: 0,
-    });
-    setPromoCode('');
-    setPromoDiscount('');
-    setPromoLimitType('unlimited');
-  };
-
-  const handleSendNotification = () => {
-    if (!notifMessage) return;
-    // Mock sending to all users (in reality this would go to a global DB table)
-    addNotification({
-      title: 'إعلان من الإدارة',
-      message: notifMessage,
-      type: 'info'
-    });
-    setNotifMessage('');
-    alert('تم إرسال الإشعار للمستخدمين');
-  };
-
   return (
-    <div className="flex flex-col h-full overflow-y-auto pb-24" style={{ direction: 'rtl' }}>
-      <div className="px-5 pt-6 pb-4">
-        <h1 className="text-white font-bold text-2xl mb-6">لوحة الإدارة</h1>
-        
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <div className="bg-[#1a2535] p-4 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center shrink-0">
-              <Users size={24} className="text-blue-500" />
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">المستخدمين</p>
-              <p className="text-white font-bold text-xl">{users.length}</p>
-            </div>
-          </div>
-          <div className="bg-[#1a2535] p-4 rounded-2xl flex items-center gap-4">
-            <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center shrink-0">
-              <CreditCard size={24} className="text-yellow-500" />
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">مشتركين Pro</p>
-              <p className="text-white font-bold text-xl">{proUsers}</p>
-            </div>
-          </div>
-          <div className="bg-[#1a2535] p-4 rounded-2xl flex items-center gap-4 col-span-2">
-            <div className="w-12 h-12 bg-[#4ade80]/10 rounded-full flex items-center justify-center shrink-0">
-              <span className="text-[#4ade80] text-xl font-bold">ج.م</span>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">الدخل التقديري الشهري</p>
-              <p className="text-[#4ade80] font-bold text-xl" style={{ direction: 'ltr' }}>{estRevenue.toLocaleString()} ج.م</p>
-            </div>
-          </div>
-        </div>
+    <div className="flex flex-col h-full overflow-y-auto scrollbar-hide pb-28">
+      
+      {/* Header */}
+      <div className="px-5 py-6">
+        <h1 className="text-white font-bold text-2xl text-right mb-1">لوحة الإدارة</h1>
+        <p className="text-sm text-right" style={{ color: '#6a9ca2' }}>نظرة عامة على أداء التطبيق والمستخدمين</p>
+      </div>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-6 flex items-start gap-3">
-            <AlertCircle size={20} className="text-red-500 shrink-0 mt-0.5" />
-            <p className="text-red-400 text-sm">{error}</p>
-          </div>
-        )}
-
-        {/* Pricing Settings */}
-        <div className="bg-[#1a2535] rounded-3xl overflow-hidden mb-8">
-          <div className="p-4 border-b border-[#1f2937] flex items-center gap-2">
-            <Settings size={20} className="text-[#4ade80]" />
-            <h2 className="text-white font-bold">إعدادات تسعير الاشتراك</h2>
-          </div>
-          <div className="p-4 space-y-4">
-            <div>
-              <label className="text-gray-400 text-xs mb-2 block">السعر الأساسي (ج.م)</label>
-              <input
-                type="number"
-                value={priceInput}
-                onChange={e => setPriceInput(e.target.value)}
-                className="w-full bg-[#0f1520] border border-[#1f2937] rounded-xl py-3 px-4 text-white focus:outline-none focus:border-[#4ade80]/40"
-              />
-            </div>
-            <div>
-              <label className="text-gray-400 text-xs mb-2 block">سعر الخصم (اختياري - اترك فارغاً للإلغاء)</label>
-              <input
-                type="number"
-                value={discountInput}
-                onChange={e => setDiscountInput(e.target.value)}
-                placeholder="مثال: 150"
-                className="w-full bg-[#0f1520] border border-[#1f2937] rounded-xl py-3 px-4 text-white focus:outline-none focus:border-[#4ade80]/40"
-              />
-            </div>
-            <button
-              onClick={handleSavePricing}
-              className="w-full py-3 rounded-xl bg-[#4ade80] text-[#070a10] font-bold text-sm"
-            >
-              حفظ التسعير
-            </button>
-          </div>
-        </div>
-
-        {/* Promo Codes */}
-        <div className="bg-[#1a2535] rounded-3xl overflow-hidden mb-8">
-          <div className="p-4 border-b border-[#1f2937] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Tag size={20} className="text-yellow-500" />
-              <h2 className="text-white font-bold">أكواد الخصم</h2>
-            </div>
-          </div>
-          
-          <div className="p-4">
-            <div className="flex flex-col gap-3 mb-6 bg-[#0f1520] p-4 rounded-2xl border border-[#1f2937]">
-              <h3 className="text-white text-sm font-bold mb-1">إضافة كود جديد</h3>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  value={promoCode}
-                  onChange={e => setPromoCode(e.target.value)}
-                  placeholder="اسم الكود (مثال: SAVE50)"
-                  className="flex-1 bg-[#1a2535] border border-[#2d3b4e] rounded-xl px-3 py-2 text-white text-sm focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const discount = promoDiscount || '20';
-                    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-                    let randomStr = '';
-                    for (let i = 0; i < 4; i++) {
-                      randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
-                    }
-                    setPromoCode(`BOBA${discount}-${randomStr}`);
-                  }}
-                  className="px-3 py-2 sm:py-0 justify-center bg-yellow-500/10 text-yellow-500 rounded-xl text-xs font-bold border border-yellow-500/20 hover:bg-yellow-500/20 transition-colors flex items-center gap-1 shrink-0"
-                >
-                  <Sparkles size={12} /> توليد تلقائي
-                </button>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="number"
-                  value={promoDiscount}
-                  onChange={e => setPromoDiscount(e.target.value)}
-                  placeholder="نسبة الخصم %"
-                  className="w-full sm:w-1/2 bg-[#1a2535] border border-[#2d3b4e] rounded-xl px-3 py-2 text-white text-sm focus:outline-none"
-                />
-                <input
-                  type="number"
-                  value={promoDays}
-                  onChange={e => setPromoDays(e.target.value)}
-                  placeholder="صلاحية بالأيام"
-                  className="w-full sm:w-1/2 bg-[#1a2535] border border-[#2d3b4e] rounded-xl px-3 py-2 text-white text-sm focus:outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5 mt-1 bg-[#161d2a] p-3 rounded-xl border border-[#2d3b4e]/50">
-                <span className="text-gray-400 text-xs font-bold block mb-0.5">حد الاستخدام:</span>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPromoLimitType('unlimited')}
-                    className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
-                      promoLimitType === 'unlimited'
-                        ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500'
-                        : 'bg-[#1a2535] border-[#2d3b4e] text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    غير محدود (Unlimited)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPromoLimitType('limited')}
-                    className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
-                      promoLimitType === 'limited'
-                        ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500'
-                        : 'bg-[#1a2535] border-[#2d3b4e] text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    محدد بعدد مستخدمين
-                  </button>
-                </div>
-                {promoLimitType === 'limited' && (
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
-                    <span className="text-gray-400 text-xs shrink-0">أقصى عدد للاستخدام:</span>
-                    <input
-                      type="number"
-                      min="1"
-                      value={promoLimitCount}
-                      onChange={e => setPromoLimitCount(e.target.value)}
-                      placeholder="أدخل العدد (مثال: 10)"
-                      className="flex-1 bg-[#1a2535] border border-[#2d3b4e] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={handleAddPromo}
-                className="w-full py-2.5 rounded-xl bg-[#2d3b4e] text-white font-bold text-sm hover:bg-[#3d4b5e] transition-colors mt-2 flex items-center justify-center gap-2"
-              >
-                <Plus size={16} /> إضافة الكود
+      {/* Tabs */}
+      <div className="px-4 mb-6">
+        <div className="flex gap-2 p-1.5 rounded-2xl" style={{ background: BG_CARD }}>
+          {[
+            { id: 'overview', label: 'نظرة عامة', icon: Activity },
+            { id: 'users', label: 'المستخدمين', icon: Users },
+            { id: 'system', label: 'النظام والتحديثات', icon: Settings }
+          ].map(t => {
+            const Icon = t.icon;
+            const isActive = activeTab === t.id;
+            return (
+              <button key={t.id} onClick={() => setActiveTab(t.id as any)}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
+                style={{
+                  background: isActive ? ACCENT : 'transparent',
+                  color: isActive ? 'white' : '#4a7a80',
+                  boxShadow: isActive ? `0 0 12px rgba(0,173,181,0.3)` : 'none'
+                }}>
+                <Icon size={16} />
+                <span className="hidden sm:inline">{t.label}</span>
               </button>
-            </div>
-
-            <div className="space-y-3">
-              {appConfig.promoCodes.map(promo => (
-                <div key={promo.id} className="bg-[#0f1520] p-3 rounded-xl border border-[#1f2937] flex items-center justify-between">
-                  <div>
-                    <p className="text-white font-bold text-sm">
-                      {promo.code}{' '}
-                      <span className="text-yellow-500 text-xs bg-yellow-500/10 px-2 py-0.5 rounded ml-2">-{promo.discountPercentage}%</span>
-                    </p>
-                    <div className="flex gap-4 text-[11px] text-gray-400 mt-1">
-                      <span>الاستخدام: <strong className="text-yellow-500">{promo.usageCount || 0}</strong> / {promo.usageLimit !== null && promo.usageLimit !== undefined ? promo.usageLimit : '∞'}</span>
-                      <span>ينتهي: {new Date(promo.expiresAt).toLocaleDateString('ar-EG')}</span>
-                    </div>
-                  </div>
-                  <button onClick={() => deletePromoCode(promo.id)} className="p-2 text-gray-500 hover:text-red-500 transition-colors">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ))}
-              {appConfig.promoCodes.length === 0 && (
-                <p className="text-center text-gray-500 text-sm py-2">لا توجد أكواد خصم حالياً</p>
-              )}
-            </div>
-          </div>
+            )
+          })}
         </div>
+      </div>
 
-        {/* Global Notifications */}
-        <div className="bg-[#1a2535] rounded-3xl overflow-hidden mb-8">
-          <div className="p-4 border-b border-[#1f2937] flex items-center gap-2">
-            <Bell size={20} className="text-blue-500" />
-            <h2 className="text-white font-bold">إرسال إشعار عام</h2>
-          </div>
-          <div className="p-4 space-y-4">
-            <textarea
-              value={notifMessage}
-              onChange={e => setNotifMessage(e.target.value)}
-              placeholder="اكتب رسالة ليتم إرسالها لجميع المستخدمين..."
-              className="w-full bg-[#0f1520] border border-[#1f2937] rounded-xl py-3 px-4 text-white focus:outline-none focus:border-[#4ade80]/40 min-h-[100px] resize-none"
-            />
-            <button
-              onClick={handleSendNotification}
-              className="w-full py-3 rounded-xl bg-blue-500 text-white font-bold text-sm hover:bg-blue-600 transition-colors"
-            >
-              إرسال الإشعار
-            </button>
-          </div>
-        </div>
-
-        {/* Users List */}
-        <div className="bg-[#1a2535] rounded-3xl overflow-hidden mb-8">
-          <div className="p-4 border-b border-[#1f2937] flex items-center justify-between">
-            <h2 className="text-white font-bold">إدارة العملاء</h2>
-            <button onClick={fetchUsers} className="text-sm text-[#4ade80]">تحديث</button>
-          </div>
-          
-          <div className="p-4 space-y-4">
-            {loading ? (
-              <p className="text-center text-gray-500 py-4">جاري التحميل...</p>
-            ) : users.map(u => (
-              <div key={u.id} className="bg-[#0f1520] p-4 rounded-2xl flex flex-col gap-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-white font-bold flex items-center gap-2">
-                      {u.name}
-                      {u.isAdmin && <Shield size={14} className="text-blue-400" />}
-                    </h3>
-                    <p className="text-gray-500 text-xs">{u.email}</p>
+      {/* ── Overview Tab ────────────────────────────────────────────────────── */}
+      {activeTab === 'overview' && (
+        <div className="px-4 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'إجمالي المستخدمين', value: stats.totalUsers, icon: Users, color: ACCENT, trend: '+12%' },
+              { label: 'المستخدمين النشطين', value: stats.activeUsers, icon: Activity, color: '#34d399', trend: '+5%' },
+              { label: 'مستخدمي Pro', value: stats.proUsers, icon: CreditCard, color: '#facc15', trend: '+2%' },
+              { label: 'الإيرادات المتوقعة', value: `${estRevenue.toLocaleString()} ج.م`, icon: DollarSign, color: '#60a5fa', trend: '+18%' },
+            ].map(stat => (
+              <div key={stat.label} className="p-4 rounded-2xl relative overflow-hidden" style={{ background: BG_CARD, border: `1px solid ${BORDER}` }}>
+                <div className="absolute top-0 left-0 w-1 h-full" style={{ background: stat.color }} />
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: stat.color + '15' }}>
+                    <stat.icon size={16} style={{ color: stat.color }} />
                   </div>
-                  <div className={`px-2 py-1 rounded text-xs font-bold ${u.plan === 'pro' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-gray-800 text-gray-400'}`}>
-                    {u.plan === 'pro' ? 'PRO' : 'FREE'}
-                  </div>
+                  <span className="text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1"
+                    style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }}>
+                    <ArrowUpRight size={10} /> {stat.trend}
+                  </span>
                 </div>
-                
-                <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={() => togglePlan(u.id, u.plan || 'free')}
-                    className="flex-1 py-2 rounded-xl text-xs font-bold bg-[#1f2937] text-white hover:bg-[#2d3b4e]"
-                  >
-                    تبديل الخطة
-                  </button>
-                  <button
-                    onClick={() => toggleAdmin(u.id, !!u.isAdmin)}
-                    className="flex-1 py-2 rounded-xl text-xs font-bold bg-[#1f2937] text-white hover:bg-[#2d3b4e]"
-                  >
-                    {u.isAdmin ? 'سحب الإدارة' : 'ترقية لأدمن'}
-                  </button>
-                </div>
+                <p className="font-black text-xl text-white mb-1">{stat.value}</p>
+                <p className="text-xs" style={{ color: '#6a9ca2' }}>{stat.label}</p>
               </div>
             ))}
           </div>
-        </div>
 
-        {/* Feedback Section (Mock) */}
-        <div className="bg-[#1a2535] rounded-3xl overflow-hidden">
-          <div className="p-4 border-b border-[#1f2937]">
-            <h2 className="text-white font-bold flex items-center gap-2">
-              <MessageSquare size={18} />
-              الآراء والمقترحات (تجريبي)
-            </h2>
-          </div>
-          <div className="p-4 space-y-4">
-            <div className="bg-[#0f1520] p-4 rounded-2xl">
-              <p className="text-white text-sm mb-2">التطبيق ممتاز جداً وسهل الاستخدام، أتمنى إضافة ميزة تصدير PDF.</p>
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>أحمد محمد</span>
-                <span>منذ يومين</span>
-              </div>
+          <div className="p-5 rounded-3xl" style={{ background: BG_CARD, border: `1px solid ${BORDER}` }}>
+            <div className="flex items-center justify-between mb-4">
+              <button className="text-xs font-bold" style={{ color: ACCENT }}>تقرير مفصل</button>
+              <h3 className="text-white font-bold text-sm">الإيرادات الشهرية</h3>
             </div>
-            <div className="bg-[#0f1520] p-4 rounded-2xl">
-              <p className="text-white text-sm mb-2">المستشار الذكي ساعدني كتير في توفير فلوسي.</p>
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>سارة أحمد</span>
-                <span>منذ أسبوع</span>
-              </div>
+            <div className="h-40 flex items-end justify-between gap-2 pt-4">
+              {[40, 60, 45, 80, 55, 90, 75].map((h, i) => (
+                <div key={i} className="flex-1 flex flex-col justify-end gap-2 group">
+                  <div className="w-full rounded-t-md transition-all group-hover:opacity-80"
+                    style={{ height: `${h}%`, background: i === 6 ? ACCENT : BORDER }} />
+                  <span className="text-[10px] text-center" style={{ color: '#4a7a80' }}>{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'][i]}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* ── Users Tab ───────────────────────────────────────────────────────── */}
+      {activeTab === 'users' && (
+        <div className="px-4">
+          <div className="flex items-center gap-2 p-3 rounded-2xl mb-4" style={{ background: BG_CARD, border: `1px solid ${BORDER}` }}>
+            <Search size={18} style={{ color: '#4a7a80' }} />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="ابحث بالاسم أو البريد..."
+              className="flex-1 bg-transparent border-none text-white text-sm text-right focus:outline-none placeholder-[#4a7a80]" />
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-10"><RefreshCw className="animate-spin" style={{ color: ACCENT }} /></div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div className="flex justify-between items-center px-2 mb-1">
+                <span className="text-xs font-bold" style={{ color: '#6a9ca2' }}>العدد: {filteredUsers.length}</span>
+                <button onClick={fetchUsers} className="text-xs font-bold flex items-center gap-1" style={{ color: ACCENT }}>
+                  <RefreshCw size={12} /> تحديث
+                </button>
+              </div>
+              
+              {filteredUsers.map(u => (
+                <div key={u.id} className="p-4 rounded-2xl" style={{ background: BG_CARD, border: `1px solid ${BORDER}` }}>
+                  <div className="flex items-start justify-between mb-3">
+                    <button onClick={() => toggleUserPlan(u.id, u.plan)}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border"
+                      style={{
+                        background: u.plan === 'pro' ? 'rgba(250,204,21,0.1)' : 'transparent',
+                        color: u.plan === 'pro' ? '#facc15' : '#6a9ca2',
+                        borderColor: u.plan === 'pro' ? '#facc15' : BORDER
+                      }}>
+                      {u.plan === 'pro' ? 'Pro' : 'Free'}
+                    </button>
+                    <div className="text-right">
+                      <p className="text-white font-bold text-sm">{u.name || 'بدون اسم'}</p>
+                      <p className="text-[10px]" style={{ color: '#6a9ca2' }}>{u.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+                    <span className="text-[10px]" style={{ color: '#4a7a80' }}>
+                      البلد: {u.country || 'غير محدد'} ({u.currency || 'EGP'})
+                    </span>
+                    <span className="text-[10px]" style={{ color: '#4a7a80' }}>
+                      تاريخ الانضمام: {new Date(u.created_at).toLocaleDateString('ar-EG')}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── System Tab ──────────────────────────────────────────────────────── */}
+      {activeTab === 'system' && (
+        <div className="px-4 space-y-4">
+          <div className="p-5 rounded-3xl" style={{ background: BG_CARD, border: `1px solid ${BORDER}` }}>
+            <div className="flex items-center gap-3 mb-6 justify-end">
+              <h3 className="text-white font-bold text-base">إرسال تحديث للتطبيق (OTA)</h3>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `rgba(0,173,181,0.15)` }}>
+                <UploadCloud size={20} style={{ color: ACCENT }} />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs mb-1.5 text-right font-medium" style={{ color: '#6a9ca2' }}>رقم الإصدار الجديد</p>
+                <input value={version} onChange={e => setVersion(e.target.value)} placeholder="مثال: 1.0.2"
+                  className="w-full rounded-xl py-3 px-4 text-sm text-right focus:outline-none placeholder-[#3a6068]"
+                  style={{ background: BG_BASE, border: `1px solid ${BORDER}`, color: 'white' }} />
+              </div>
+
+              <div>
+                <p className="text-xs mb-1.5 text-right font-medium" style={{ color: '#6a9ca2' }}>رابط تحميل الملف (ZIP)</p>
+                <input value={downloadUrl} onChange={e => setDownloadUrl(e.target.value)} placeholder="https://example.com/update.zip" dir="ltr"
+                  className="w-full rounded-xl py-3 px-4 text-sm focus:outline-none placeholder-[#3a6068]"
+                  style={{ background: BG_BASE, border: `1px solid ${BORDER}`, color: 'white' }} />
+              </div>
+
+              <div>
+                <p className="text-xs mb-1.5 text-right font-medium" style={{ color: '#6a9ca2' }}>ما الجديد في هذا التحديث؟</p>
+                <textarea value={changelog} onChange={e => setChangelog(e.target.value)} placeholder="- تحسين الأداء&#10;- إصلاح الأخطاء"
+                  className="w-full rounded-xl py-3 px-4 text-sm text-right focus:outline-none placeholder-[#3a6068] min-h-[100px] resize-none"
+                  style={{ background: BG_BASE, border: `1px solid ${BORDER}`, color: 'white' }} />
+              </div>
+
+              <button onClick={handlePushUpdate} disabled={isUpdating}
+                className="w-full py-4 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-2"
+                style={{
+                  background: `linear-gradient(135deg, ${ACCENT} 0%, #008891 100%)`, color: 'white',
+                  boxShadow: `0 4px 20px rgba(0,173,181,0.3)`
+                }}>
+                {isUpdating ? <RefreshCw className="animate-spin" size={18} /> : <UploadCloud size={18} />}
+                إرسال التحديث للمستخدمين
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

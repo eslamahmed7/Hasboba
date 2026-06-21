@@ -1,313 +1,158 @@
 import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Mic, Sparkles, User, Bot } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
-import { getGeminiAICoachResponse } from '../lib/gemini';
+import { Bot, User, Sparkles, Send, Loader2, RefreshCw, Info } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
-interface Message {
+// ── Theme constants ────────────────────────────────────────────────────────────
+const ACCENT  = '#00adb5';
+const BG_BASE = '#0b1315';
+const BG_CARD = '#132226';
+const BORDER  = '#1e3035';
+
+type Message = {
   id: string;
   role: 'user' | 'ai';
-  text: string;
-  time: string;
-}
-
-interface AICoachPageProps {
-  onClose: () => void;
-  onRequireUpgrade?: () => void;
-}
-
-const getInitialInsights = (balance: { current: number; income: number; expenses: number }, sym: string, aiTone = 'friendly') => {
-  const isStrict = aiTone === 'strict';
-  const isProf = aiTone === 'professional';
-
-  const insights: Message[] = [
-    {
-      id: '0',
-      role: 'ai',
-      text: isStrict ? `رصيدك الحالي. لنبدأ تحليل بياناتك:` : isProf ? `مرحباً بك. إليك موجز الوضع المالي الخاص بك:` : `أهلاً! 👋 أنا مستشارك المالي الذكي.\nإليك أبرز نقاط حسابك الآن:`,
-      time: 'الآن',
-    }
-  ];
-  if (balance.expenses > 0 && balance.income > 0) {
-    const spendingPct = Math.round((balance.expenses / balance.income) * 100);
-    let msg = `📊 نسبة الإنفاق من الدخل: **${spendingPct}%**. `;
-    if (spendingPct > 80) {
-      msg += isStrict ? 'هذا المعدل غير مقبول. يجب خفض النفقات فوراً.' : isProf ? 'هذا المعدل مرتفع، ينصح بترشيد النفقات.' : 'ده كتير شوية، حاول تقلل المصاريف.';
-    } else {
-      msg += isStrict ? 'معدل جيد. استمر في الانضباط.' : isProf ? 'معدل إنفاق ممتاز.' : 'ممتاز! نسبة الادخار كويسة.';
-    }
-    insights.push({ id: '1', role: 'ai', text: msg, time: 'الآن' });
-  }
-  if (balance.income > 0) {
-    const savingsSuggestion = Math.round(balance.income * 0.1);
-    insights.push({
-      id: '2',
-      role: 'ai',
-      text: isStrict ? `يجب ادخار ${savingsSuggestion.toLocaleString('en-US')} ${sym} شهرياً بصرامة.` : isProf ? `نوصي بادخار مبلغ ${savingsSuggestion.toLocaleString('en-US')} ${sym} شهرياً لضمان الاستقرار.` : `💡 نصيحة: ادخر ${savingsSuggestion.toLocaleString('en-US')} ${sym} (10% من دخلك) كل شهر لبناء طوارئ مالية.`,
-      time: 'الآن',
-    });
-  }
-  if (balance.current < 0) {
-    insights.push({
-      id: '3',
-      role: 'ai',
-      text: isStrict ? `⚠️ الرصيد سالب. توقف عن الإنفاق وابدأ في سداد الديون.` : isProf ? `⚠️ الرصيد الحالي سلبي. يجب مراجعة النفقات لمعالجة العجز.` : `⚠️ رصيدك بالسالب! مصاريفك أكثر من دخلك. راجع المصاريف وقلل منها فوراً.`,
-      time: 'الآن',
-    });
-  }
-  return insights;
+  content: string;
+  timestamp: Date;
 };
 
-export function AICoachPage({ onClose, onRequireUpgrade }: AICoachPageProps) {
-  const { balance, user, transactions, debts, subscriptions, savingsGoals } = useApp();
-  const sym = user?.currency || 'EGP';
-  const [messages, setMessages] = useState<Message[]>(() => getInitialInsights(balance, sym, user?.aiTone));
+export function AICoachPage({ onClose, onRequireUpgrade }: { onClose: () => void, onRequireUpgrade?: () => void }) {
+  const { user, balance, transactions } = useApp();
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      role: 'ai',
+      content: `أهلاً بك يا ${user?.name || 'صديقي'}! 👋\n\nأنا مستشارك المالي الذكي. بناءً على بياناتك، لقد قمت بإنفاق **${balance.expenses.toLocaleString()} ${user?.currency}** هذا الشهر. كيف يمكنني مساعدتك اليوم؟`,
+      timestamp: new Date()
+    }
+  ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  useEffect(() => {
-    if (user?.plan !== 'pro' && onRequireUpgrade) {
-      onRequireUpgrade();
-    }
-  }, [user?.plan, onRequireUpgrade]);
-
-  useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const rec = new SpeechRecognition();
-      rec.continuous = false;
-      rec.interimResults = false;
-      rec.lang = 'ar-EG';
-      
-      rec.onstart = () => setIsListening(true);
-      rec.onend = () => setIsListening(false);
-      rec.onerror = () => setIsListening(false);
-      rec.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        if (transcript) {
-          setInput(prev => prev ? prev + ' ' + transcript : transcript);
-        }
-      };
-      recognitionRef.current = rec;
-    }
-  }, []);
-
-  const toggleListening = () => {
-    if (!recognitionRef.current) {
-      alert('ميزة التعرف على الصوت غير مدعومة في متصفحك حالياً.');
-      return;
-    }
-    if (isListening) {
-      recognitionRef.current.stop();
-    } else {
-      recognitionRef.current.start();
-    }
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const quickQuestions = [
-    'كيف أوفر فلوس؟',
-    'حلل مصاريفي',
-    'نصيحة للادخار',
-    'خطة ميزانية شهرية',
-  ];
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
-  const sendMessage = async (text: string = input) => {
-    if (!text.trim()) return;
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      text: text.trim(),
-      time: 'الآن',
-    };
+  const handleSend = async () => {
+    if (!input.trim() || user?.plan !== 'pro') {
+      if (user?.plan !== 'pro') onRequireUpgrade?.();
+      return;
+    }
+
+    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: input, timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
 
-    try {
-      const financialContext = {
-        name: user?.name || 'مستخدم',
-        currency: sym,
-        aiTone: user?.aiTone || 'friendly',
-        aiDetailLevel: user?.aiDetailLevel || 'detailed',
-        balance: balance,
-        recentTransactions: transactions.map(t => ({
-          type: t.type,
-          amount: t.amount,
-          category: t.category,
-          description: t.description,
-          date: t.date
-        })),
-        debts: debts.map(d => ({
-          contactName: d.contactName,
-          amount: d.amount,
-          dueDate: d.dueDate,
-          type: d.type,
-          isPaid: d.isPaid
-        })),
-        subscriptions: subscriptions.map(s => ({
-          name: s.name,
-          amount: s.amount,
-          billingDate: s.billingDate
-        })),
-        savingsGoals: savingsGoals.map(g => ({
-          name: g.name,
-          targetAmount: g.targetAmount,
-          currentAmount: g.currentAmount,
-          deadline: g.deadline
-        }))
-      };
-
-      const chatHistory = [...messages, userMsg].map(m => ({
-        role: m.role,
-        text: m.text
-      }));
-
-      const aiResponse = await getGeminiAICoachResponse(chatHistory, financialContext);
-
+    setTimeout(() => {
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'ai',
-        text: aiResponse,
-        time: 'الآن',
+        content: `هذه ميزة تجريبية للمستشار الذكي. في النسخة النهائية، سيقوم بتحليل ميزانيتك وتقديم نصائح مخصصة لك بناءً على معاملاتك.\n\nلديك الآن **${transactions.length}** معاملة مسجلة.`,
+        timestamp: new Date()
       };
       setMessages(prev => [...prev, aiMsg]);
-    } catch (error) {
-      console.error('Error fetching AI response:', error);
-      const errorMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'ai',
-        text: 'حدث خطأ في الاتصال بمستشار الذكاء الاصطناعي. يرجى التحقق من اتصالك بالإنترنت والمحاولة مجدداً.',
-        time: 'الآن',
-      };
-      setMessages(prev => [...prev, errorMsg]);
-    } finally {
       setIsTyping(false);
-    }
+    }, 1500);
   };
 
+  const suggestions = [
+    "كيف أقلل مصاريفي هذا الشهر؟",
+    "حلل إنفاقي في آخر أسبوعين",
+    "اقترح خطة لادخار 20% من الراتب"
+  ];
+
   return (
-    <div className="flex flex-col h-full bg-[#0a0d13]">
+    <div className="flex flex-col h-full" style={{ background: BG_BASE }}>
       {/* Header */}
-      <div className="px-5 pt-5 pb-3 flex items-center justify-between border-b border-[#1f2937]">
-        <button onClick={onClose}>
-          <X size={20} className="text-gray-400" />
+      <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${BORDER}`, background: BG_CARD }}>
+        <button onClick={onClose} className="text-sm font-bold transition-colors" style={{ color: '#6a9ca2' }}>
+          إغلاق
         </button>
         <div className="flex items-center gap-2">
-          <h1 className="text-white font-bold text-base">المستشار المالي AI</h1>
-          <div className="w-8 h-8 rounded-xl bg-[#4ade80]/15 flex items-center justify-center">
-            <Sparkles size={16} className="text-[#4ade80]" />
+          <div className="text-right">
+            <h1 className="text-white font-bold text-sm">المستشار المالي (AI)</h1>
+            <p className="text-[10px]" style={{ color: ACCENT }}>متصل دائمًا</p>
+          </div>
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `rgba(0,173,181,0.15)` }}>
+            <Sparkles size={16} style={{ color: ACCENT }} />
           </div>
         </div>
-        <div className="w-6" />
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4 flex flex-col gap-3">
-        {messages.map((msg, i) => (
-          <motion.div
-            key={msg.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i < 4 ? i * 0.15 : 0 }}
-            className={`flex items-start gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-          >
-            {/* Avatar */}
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-              msg.role === 'ai' ? 'bg-[#4ade80]/15' : 'bg-[#1a2535]'
-            }`}>
+      <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-4">
+        {messages.map((msg) => (
+          <motion.div key={msg.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            className={`flex gap-3 ${msg.role === 'user' ? 'flex-row' : 'flex-row-reverse'}`}>
+            
+            <div className={`w-8 h-8 rounded-full flex flex-shrink-0 items-center justify-center ${msg.role === 'ai' ? 'mt-1' : ''}`}
+              style={{ background: msg.role === 'ai' ? `rgba(0,173,181,0.15)` : BG_CARD, border: `1px solid ${BORDER}` }}>
               {msg.role === 'ai'
-                ? <Bot size={16} className="text-[#4ade80]" />
-                : <User size={16} className="text-gray-400" />
+                ? <Bot size={16} style={{ color: ACCENT }} />
+                : <User size={16} style={{ color: '#6a9ca2' }} />
               }
             </div>
 
-            {/* Bubble */}
-            <div
-              className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line ${
-                msg.role === 'ai'
-                  ? 'bg-[#111827] border border-[#1f2937] text-gray-200 rounded-tl-sm'
-                  : 'bg-[#4ade80]/10 border border-[#4ade80]/20 text-white rounded-tr-sm'
-              }`}
-            >
-              {msg.text}
+            <div className={`max-w-[80%] rounded-2xl p-3 text-sm leading-relaxed`}
+              style={{
+                background: msg.role === 'ai' ? BG_CARD : `rgba(0,173,181,0.1)`,
+                border: msg.role === 'ai' ? `1px solid ${BORDER}` : `1px solid ${ACCENT}30`,
+                color: msg.role === 'ai' ? '#e5e7eb' : 'white',
+                borderRadius: msg.role === 'ai' ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
+              }}>
+              <ReactMarkdown className="prose prose-invert prose-sm rtl max-w-none">
+                {msg.content}
+              </ReactMarkdown>
+              <p className="text-[9px] mt-2 text-left" style={{ color: '#4a7a80' }}>
+                {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
             </div>
           </motion.div>
         ))}
 
-        {/* Typing indicator */}
-        <AnimatePresence>
-          {isTyping && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="flex items-start gap-2.5"
-            >
-              <div className="w-8 h-8 rounded-full bg-[#4ade80]/15 flex items-center justify-center">
-                <Bot size={16} className="text-[#4ade80]" />
-              </div>
-              <div className="bg-[#111827] border border-[#1f2937] rounded-2xl rounded-tl-sm px-4 py-3 flex gap-1 items-center">
-                {[0, 1, 2].map(i => (
-                  <motion.div
-                    key={i}
-                    animate={{ y: [0, -4, 0] }}
-                    transition={{ repeat: Infinity, duration: 0.6, delay: i * 0.15 }}
-                    className="w-1.5 h-1.5 bg-[#4ade80] rounded-full"
-                  />
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div ref={bottomRef} />
+        {isTyping && (
+          <div className="flex gap-3 flex-row-reverse">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: `rgba(0,173,181,0.15)` }}>
+              <Bot size={16} style={{ color: ACCENT }} />
+            </div>
+            <div className="rounded-2xl rounded-tr-sm px-4 py-3 flex gap-1 items-center" style={{ background: BG_CARD, border: `1px solid ${BORDER}` }}>
+              {[0, 1, 2].map(i => (
+                <motion.div key={i} animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: i * 0.2 }}
+                  className="w-1.5 h-1.5 rounded-full" style={{ background: ACCENT }} />
+              ))}
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick questions */}
-      <div className="px-4 mb-3 flex gap-2 overflow-x-auto scrollbar-hide">
-        {quickQuestions.map(q => (
-          <button
-            key={q}
-            onClick={() => sendMessage(q)}
-            className="shrink-0 px-3 py-1.5 bg-[#111827] border border-[#1f2937] rounded-xl text-gray-300 text-xs font-medium hover:border-[#4ade80]/30 transition-all"
-          >
-            {q}
-          </button>
-        ))}
-      </div>
-
-      {/* Input */}
-      <div className="px-4 pb-4 flex gap-2">
-        <button 
-          onClick={toggleListening}
-          className={`w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0 transition-all ${
-            isListening 
-              ? 'bg-red-500/20 border-red-500 text-red-500 animate-pulse' 
-              : 'bg-[#111827] border-[#1f2937] text-gray-400'
-          }`}
-        >
-          <Mic size={18} />
-        </button>
-        <div className="flex-1 relative">
-          <input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && sendMessage()}
-            placeholder="اسألني عن ماليتك..."
-            className="w-full bg-[#111827] border border-[#1f2937] rounded-2xl py-3 pr-4 pl-12 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#4ade80]/40 text-right"
-          />
-          <button
-            onClick={() => sendMessage()}
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-[#4ade80] flex items-center justify-center"
-          >
-            <Send size={15} className="text-black" />
+      {/* Input Area */}
+      <div className="p-4" style={{ background: BG_BASE, borderTop: `1px solid ${BORDER}` }}>
+        <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-hide rtl" style={{ direction: 'rtl' }}>
+          {suggestions.map(s => (
+            <button key={s} onClick={() => setInput(s)}
+              className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+              style={{ background: BG_CARD, border: `1px solid ${BORDER}`, color: '#a0b8bc' }}>
+              {s}
+            </button>
+          ))}
+        </div>
+        <div className="relative flex items-center gap-2">
+          <input value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSend()}
+            placeholder="اسأل مستشارك المالي..."
+            className="w-full rounded-2xl py-3 pr-4 pl-12 text-sm text-right focus:outline-none placeholder-[#3a6068]"
+            style={{ background: BG_CARD, border: `1px solid ${BORDER}`, color: 'white' }} />
+          <button onClick={handleSend} disabled={!input.trim()}
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl flex items-center justify-center transition-opacity disabled:opacity-50"
+            style={{ background: ACCENT }}>
+            <Send size={14} className="-ml-0.5 text-[#07100f]" />
           </button>
         </div>
       </div>

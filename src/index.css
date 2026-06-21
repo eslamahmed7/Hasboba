@@ -11,7 +11,7 @@
   }
 
   html, body {
-    background-color: #070a10 !important;
+    background-color: #0b1315 !important;
     overflow: hidden;
   }
 
@@ -27,54 +27,57 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Light Mode Overrides */
+  /* ── Light Mode Overrides ──────────────────────────────────────── */
   html.light body {
-    background-color: #f3f4f6;
-    color: #111827;
+    background-color: #e8f4f5;
+    color: #0d1719;
   }
 
-  html.light .bg-\[\#070a10\],
-  html.light .bg-\[\#0b1120\],
-  html.light .bg-\[\#0a0d13\] {
-    background-color: #f3f4f6 !important;
+  html.light .bg-bg-base,
+  html.light .bg-\[#0b1315\],
+  html.light .bg-\[#0d1719\] {
+    background-color: #e8f4f5 !important;
   }
 
-  html.light .bg-\[\#111827\],
-  html.light .bg-\[\#0d1117\] {
+  html.light .bg-bg-card,
+  html.light .bg-\[#132226\],
+  html.light .bg-\[#162a2f\] {
     background-color: #ffffff !important;
   }
 
-  html.light .bg-\[\#1f2937\],
-  html.light .bg-\[\#1a2535\] {
-    background-color: #e5e7eb !important;
+  html.light .bg-\[#1e3035\],
+  html.light .bg-\[#243a3f\] {
+    background-color: #d4eaec !important;
   }
 
-  html.light .border-\[\#1f2937\] {
-    border-color: #e5e7eb !important;
+  html.light .border-\[#1e3035\],
+  html.light .border-\[#243a3f\] {
+    border-color: #b0d5d8 !important;
   }
 
   html.light .text-white {
-    color: #111827 !important;
+    color: #0d1719 !important;
   }
 
   html.light .text-gray-300 {
-    color: #374151 !important;
+    color: #1e3035 !important;
   }
 
   html.light .text-gray-400 {
-    color: #4b5563 !important;
+    color: #2d4a50 !important;
   }
 
   html.light .text-gray-500 {
-    color: #6b7280 !important;
+    color: #4a7a80 !important;
   }
 
   html.light .text-gray-600 {
-    color: #9ca3af !important;
+    color: #6a9ca2 !important;
   }
 }
 
 @layer utilities {
+  /* ── Scrollbar ──────────────────────────────────────────────────── */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -83,31 +86,104 @@
     display: none;
   }
 
+  /* ── Safe Areas ─────────────────────────────────────────────────── */
   .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 16px);
+    padding-bottom: env(safe-area-inset-bottom, 12px);
   }
 
-  .glow-green {
-    box-shadow: 0 0 20px rgba(74, 222, 128, 0.4), 0 0 40px rgba(74, 222, 128, 0.2);
+  /* ── Glow utilities ─────────────────────────────────────────────── */
+  .glow-teal {
+    box-shadow: 0 0 20px rgba(0, 173, 181, 0.4), 0 0 40px rgba(0, 173, 181, 0.2);
   }
 
-  .glow-green-sm {
-    box-shadow: 0 0 12px rgba(74, 222, 128, 0.3);
+  .glow-teal-sm {
+    box-shadow: 0 0 12px rgba(0, 173, 181, 0.35);
   }
 
-  .glow-red-sm {
-    box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+  .glow-income {
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
   }
 
+  .glow-expense {
+    box-shadow: 0 0 16px rgba(244, 63, 94, 0.35);
+  }
+
+  /* ── Card tokens ────────────────────────────────────────────────── */
   .card {
-    background: #111827;
-    border: 1px solid #1f2937;
+    background: #132226;
+    border: 1px solid #1e3035;
     border-radius: 16px;
   }
 
   .card-sm {
-    background: #111827;
-    border: 1px solid #1f2937;
+    background: #132226;
+    border: 1px solid #1e3035;
     border-radius: 12px;
+  }
+
+  .card-deep {
+    background: #162a2f;
+    border: 1px solid #243a3f;
+    border-radius: 16px;
+  }
+
+  /* ── Accent button ──────────────────────────────────────────────── */
+  .btn-accent {
+    background: #00adb5;
+    color: #ffffff;
+    font-weight: 700;
+    border-radius: 16px;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 16px rgba(0, 173, 181, 0.3);
+  }
+
+  .btn-accent:hover {
+    background: #009ba3;
+    box-shadow: 0 0 24px rgba(0, 173, 181, 0.45);
+  }
+
+  .btn-accent:disabled {
+    background: #1e3035;
+    color: #4a7a80;
+    box-shadow: none;
+  }
+
+  /* ── Input style ────────────────────────────────────────────────── */
+  .input-dark {
+    background: #0f1d20;
+    border: 1px solid #1e3035;
+    border-radius: 12px;
+    color: white;
+    padding: 12px 16px;
+    text-align: right;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .input-dark:focus {
+    border-color: rgba(0, 173, 181, 0.4);
+  }
+
+  /* ── Separator ──────────────────────────────────────────────────── */
+  .sep {
+    height: 1px;
+    background: #1e3035;
+    opacity: 0.6;
+  }
+
+  /* ── Tab pill active ────────────────────────────────────────────── */
+  .tab-active {
+    background: #00adb5;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(0, 173, 181, 0.3);
+  }
+
+  /* ── Gradient BG helper ─────────────────────────────────────────── */
+  .grad-teal {
+    background: linear-gradient(135deg, #00adb5 0%, #008891 100%);
+  }
+
+  .grad-card {
+    background: linear-gradient(145deg, #162a2f 0%, #132226 100%);
   }
 }

@@ -1,185 +1,139 @@
-import { useRef } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Download, TrendingDown, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { Download, ChevronLeft, Calendar as CalendarIcon, TrendingDown, TrendingUp } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 
-const categoryColors: Record<string, string> = {
-  'طعام': '#f97316', 'مواصلات': '#3b82f6', 'ترفيه': '#a855f7',
-  'تسوق': '#ec4899', 'صحة': '#ef4444', 'فواتير': '#eab308',
-  'تعليم': '#6366f1', 'هدايا': '#f43f5e', 'سكن': '#14b8a6',
-  'شخصي': '#6b7280', 'استثمار': '#22c55e', 'أخرى': '#64748b',
-  'راتب': '#22c55e', 'عمل حر': '#3b82f6', 'هدية': '#ec4899',
-  'مكافأة': '#eab308',
-};
+const ACCENT  = '#00adb5';
+const BG_BASE = '#0b1315';
+const BG_CARD = '#132226';
+const BORDER  = '#1e3035';
+
+const COLORS = [ACCENT, '#60a5fa', '#f97316', '#a855f7', '#ec4899', '#facc15', '#14b8a6'];
 
 export function ReportsPage() {
-  const { transactions, balance, user } = useApp();
-  const reportRef = useRef<HTMLDivElement>(null);
+  const { user, transactions, balance } = useApp();
+  const [period, setPeriod] = useState<'month' | 'year' | 'all'>('month');
+
   const sym = user?.currency || 'EGP';
-  const formatNum = (n: number) => n.toLocaleString('en-US');
+  const fmt = (n: number) => n.toLocaleString('en-US');
 
-  const spending: Record<string, number> = {};
-  transactions.filter(t => t.type === 'expense').forEach(t => {
-    spending[t.category] = (spending[t.category] || 0) + t.amount;
-  });
+  const expenses = transactions.filter(t => t.type === 'expense');
+  const incomes = transactions.filter(t => t.type === 'income');
 
-  const totalExpenses = balance.expenses || 0;
-  const categories = Object.entries(spending)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 6);
+  const categoryTotals = expenses.reduce((acc, t) => {
+    acc[t.category] = (acc[t.category] || 0) + t.amount;
+    return acc;
+  }, {} as Record<string, number>);
 
-  // Build conic gradient for donut
-  let cumulative = 0;
-  const segments = categories.map(([cat, amount]) => {
-    const pct = totalExpenses > 0 ? (amount / totalExpenses) * 360 : 0;
-    const start = cumulative;
-    cumulative += pct;
-    return { cat, amount, start, end: cumulative, color: categoryColors[cat] || '#64748b' };
-  });
+  const pieData = Object.entries(categoryTotals)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
 
-  const conicGradient = segments.length > 0
-    ? `conic-gradient(${segments.map(s => `${s.color} ${s.start}deg ${s.end}deg`).join(', ')})`
-    : `conic-gradient(#1f2937 0deg 360deg)`;
+  const topCategory = pieData[0];
 
-  const exportPDF = async () => {
-    if (!reportRef.current) return;
-    try {
-      const html2canvas = (await import('html2canvas')).default;
-      const { jsPDF } = await import('jspdf');
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#0a0d13',
-        logging: false,
-      });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgWidth = 210;
-      const pageHeight = 295;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-      const isApp = (window as any).Capacitor;
-      if (isApp && navigator.canShare) {
-        const blob = pdf.output('blob');
-        const file = new File([blob], 'hasboba-report.pdf', { type: 'application/pdf' });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'تقرير حسبوبة المالي' });
-          return;
-        }
-      }
-      pdf.save('hasboba-report.pdf');
-    } catch (err: any) {
-      alert('خطأ في تصدير PDF: ' + (err?.message || err));
-    }
+  const handleExport = () => {
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + 
+      "التاريخ,النوع,الفئة,المبلغ,الملاحظات\n" +
+      transactions.map(t => 
+        `"${new Date(t.date).toLocaleDateString('ar-EG')}","${t.type === 'income' ? 'دخل' : 'مصروف'}","${t.category}","${t.amount}","${t.notes || ''}"`
+      ).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `تقرير_حسبوبة_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto scrollbar-hide pb-4">
-      <div ref={reportRef} className="bg-[#0a0d13]">
-        {/* Header */}
-        <div className="px-5 pt-5 pb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 bg-[#111827] border border-[#1f2937] rounded-xl px-3 py-2">
-            <ChevronDown size={14} className="text-gray-400" />
-            <span className="text-white text-xs font-medium">هذا الشهر</span>
-          </div>
-          <h1 className="text-white font-bold text-base">التقارير</h1>
-        </div>
-
-        {/* Donut chart */}
-        <div className="px-5 mb-4">
-          <div className="bg-[#111827] border border-[#1f2937] rounded-2xl p-5">
-            <h2 className="text-white font-bold text-sm text-right mb-4">المصاريف حسب الفئة</h2>
-
-            {totalExpenses === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8">
-                <TrendingDown size={32} className="text-gray-600 mb-2" />
-                <p className="text-gray-500 text-sm">لا توجد مصاريف بعد</p>
-              </div>
-            ) : (
-              <>
-                <div className="flex justify-center mb-5 relative">
-                  <div
-                    className="w-44 h-44 rounded-full relative flex items-center justify-center"
-                    style={{ background: conicGradient }}
-                  >
-                    <div className="w-28 h-28 bg-[#111827] rounded-full absolute flex flex-col items-center justify-center">
-                      <span className="text-white font-black text-lg">{formatNum(totalExpenses)}</span>
-                      <span className="text-gray-500 text-xs">{sym}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Legend with percentages */}
-                <div className="flex flex-col gap-2">
-                  {categories.map(([cat, amt]) => {
-                    const pct = Math.round((amt / totalExpenses) * 100);
-                    const color = categoryColors[cat] || '#64748b';
-                    return (
-                      <div key={cat} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-400 text-xs font-medium w-8 text-right">{formatNum(amt)}</span>
-                          <span className="text-gray-500 text-xs">{sym}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 text-right">
-                            <div className="flex items-center gap-2 justify-end">
-                              <span className="text-gray-400 text-xs">{pct}%</span>
-                              <span className="text-white text-xs font-medium">{cat}</span>
-                            </div>
-                            {/* Mini progress bar */}
-                            <div className="h-1 bg-[#1f2937] rounded-full mt-1 w-32">
-                              <div
-                                className="h-full rounded-full"
-                                style={{ width: `${pct}%`, backgroundColor: color }}
-                              />
-                            </div>
-                          </div>
-                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Summary cards */}
-        <div className="px-5 grid grid-cols-3 gap-2 mb-4">
-          {[
-            { label: 'الرصيد', value: balance.current, color: 'text-white' },
-            { label: 'الدخل', value: balance.income, color: 'text-[#4ade80]' },
-            { label: 'المصاريف', value: balance.expenses, color: 'text-red-400' },
-          ].map(item => (
-            <div key={item.label} className="bg-[#111827] border border-[#1f2937] rounded-2xl p-3 text-center">
-              <p className="text-gray-500 text-xs mb-1">{item.label}</p>
-              <p className={`${item.color} font-black text-sm`}>{formatNum(item.value)}</p>
-              <p className="text-gray-600 text-xs">{sym}</p>
-            </div>
-          ))}
+    <div className="flex flex-col h-full overflow-y-auto scrollbar-hide pb-28">
+      
+      <div className="px-5 mb-4 flex items-center justify-between mt-2">
+        <button onClick={handleExport}
+          className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
+          style={{ background: `rgba(0,173,181,0.1)`, border: `1px solid ${ACCENT}30` }}>
+          <Download size={18} style={{ color: ACCENT }} />
+        </button>
+        <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: BG_CARD, border: `1px solid ${BORDER}` }}>
+          <select value={period} onChange={e => setPeriod(e.target.value as any)}
+            className="text-xs font-bold text-white bg-transparent outline-none cursor-pointer" dir="rtl">
+            <option value="month">هذا الشهر</option>
+            <option value="year">هذا العام</option>
+            <option value="all">كل الأوقات</option>
+          </select>
+          <CalendarIcon size={14} style={{ color: '#6a9ca2' }} />
         </div>
       </div>
 
-      {/* Export PDF Button */}
-      <div className="px-5 mt-2">
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          onClick={exportPDF}
-          className="w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold text-base flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(74,222,128,0.3)]"
-        >
-          <Download size={20} />
-          تصدير تقرير PDF
-        </motion.button>
+      <div className="px-4 mb-6">
+        <div className="rounded-2xl p-5" style={{ background: BG_CARD, border: `1px solid ${BORDER}` }}>
+          <p className="text-white font-bold text-sm text-right mb-4">تحليل المصروفات</p>
+          
+          {pieData.length > 0 ? (
+            <>
+              <div className="h-52 relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
+                      {pieData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <div className="w-28 h-28 rounded-full absolute flex flex-col items-center justify-center" style={{ background: BG_CARD }}>
+                    <p className="text-[10px]" style={{ color: '#4a7a80' }}>إجمالي المصاريف</p>
+                    <p className="text-white font-black text-sm">{fmt(balance.expenses)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-2">
+                {pieData.map((entry, index) => {
+                  const pct = Math.round((entry.value / balance.expenses) * 100);
+                  return (
+                    <div key={entry.name} className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-white">{fmt(entry.value)} {sym}</span>
+                      <div className="flex items-center gap-2">
+                        <span style={{ color: '#6a9ca2' }}>{pct}%</span>
+                        <span className="text-white">{entry.name}</span>
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="h-40 flex flex-col items-center justify-center text-center">
+              <PieChart size={32} style={{ color: '#2d4a50' }} className="mb-2" />
+              <p className="text-sm" style={{ color: '#6a9ca2' }}>لا توجد مصاريف في هذه الفترة</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="px-4 grid grid-cols-2 gap-3 mb-6">
+        {[
+          { label: 'الرصيد المتاح', value: balance.current, color: balance.current >= 0 ? ACCENT : '#fb7185' },
+          { label: 'الدخل', value: balance.income, color: ACCENT },
+          { label: 'المصاريف', value: balance.expenses, color: '#fb7185' },
+          { label: 'متوسط الدفع', value: expenses.length ? Math.round(balance.expenses / expenses.length) : 0, color: 'white' },
+        ].map(item => (
+          <div key={item.label} className="rounded-2xl p-3 text-center" style={{ background: BG_CARD, border: `1px solid ${BORDER}` }}>
+            <p className="text-[10px] mb-1" style={{ color: '#6a9ca2' }}>{item.label}</p>
+            <p className="font-black text-base" style={{ color: item.color }}>{fmt(item.value)}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="px-4 mb-8">
+        <button onClick={handleExport}
+          className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all"
+          style={{ background: `linear-gradient(135deg, ${ACCENT} 0%, #008891 100%)`, color: 'white', boxShadow: `0 4px 20px rgba(0,173,181,0.3)` }}>
+          <Download size={18} /> تحميل تقرير كامل (CSV)
+        </button>
       </div>
     </div>
   );
