@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const API_KEY = 'AIzaSyBBlhDfQloXaI8sPPq6GJH6UnOlWBuVMM4';
+const rawGeminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+const API_KEY = rawGeminiKey && !rawGeminiKey.includes('_here') ? rawGeminiKey : 'AIzaSyBBlhDfQloXaI8sPPq6GJH6UnOlWBuVMM4';
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 // Categories definitions to restrict output
