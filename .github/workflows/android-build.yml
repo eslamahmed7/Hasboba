@@ -48,15 +48,13 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Sync Capacitor
         run: npx cap sync android
 
       - name: Build Android APK
         run: |
           cd android
+          sed -i 's/\r$//' gradlew
           chmod +x gradlew
           ./gradlew assembleDebug
 
