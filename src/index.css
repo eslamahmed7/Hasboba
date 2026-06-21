@@ -10,16 +10,19 @@
     box-sizing: border-box;
   }
 
+  html, body {
+    background-color: #070a10 !important;
+    overflow: hidden;
+  }
+
   html {
     font-family: 'Cairo', 'Inter', system-ui, -apple-system, sans-serif;
     direction: rtl;
   }
 
   body {
-    background-color: #070a10;
     color: #ffffff;
     min-height: 100vh;
-    overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
