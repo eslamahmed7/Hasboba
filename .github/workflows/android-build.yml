@@ -54,6 +54,8 @@ jobs:
       - name: Build Android APK
         run: |
           cd android
+          # Accept SDK licenses just in case
+          yes | sdkmanager --licenses || true
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
           ./gradlew assembleDebug
