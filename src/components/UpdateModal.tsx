@@ -31,12 +31,13 @@ export function UpdateModal({ version, changelog, downloadUrl, onClose }: Update
         onClick={onClose}
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]"
       />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[360px] bg-[#0f1520] border border-[#1f2937] rounded-3xl z-[101] overflow-hidden"
-      >
+      <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 pointer-events-none">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          className="w-full max-w-[360px] bg-[#0f1520] border border-[#1f2937] rounded-3xl overflow-hidden pointer-events-auto"
+        >
         <div className="relative h-32 bg-gradient-to-br from-[#4ade80]/20 to-transparent flex items-center justify-center border-b border-[#1f2937]/50">
           <button
             onClick={onClose}
@@ -86,7 +87,8 @@ export function UpdateModal({ version, changelog, downloadUrl, onClose }: Update
             لاحقاً
           </button>
         </div>
-      </motion.div>
+        </motion.div>
+      </div>
     </>
   );
 }
