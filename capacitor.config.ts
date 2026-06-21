@@ -9,6 +9,9 @@ const config: CapacitorConfig = {
       resize: 'none',
       style: 'dark',
     },
+    CapacitorUpdater: {
+      autoUpdate: false,
+    },
   },
 };
 

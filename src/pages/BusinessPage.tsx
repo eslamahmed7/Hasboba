@@ -475,12 +475,16 @@ export function BusinessPage() {
                     <p className="text-gray-400 text-xs font-medium">مصاريف المشروع (اختياري)</p>
                   </div>
                   {projectExpenses.map((e, idx) => (
-                    <div key={idx} className="flex gap-2 mb-2">
-                      <button onClick={() => removeExpenseRow(idx)} className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0"><X size={14} className="text-red-400" /></button>
-                      <input type="number" value={e.amount} onChange={ev => updateExpenseRow(idx, 'amount', ev.target.value)}
-                        placeholder="المبلغ" className="w-24 bg-[#111827] border border-[#1f2937] rounded-xl px-3 py-2 text-white text-sm text-right placeholder-gray-600 focus:outline-none" />
-                      <input type="text" value={e.label} onChange={ev => updateExpenseRow(idx, 'label', ev.target.value)}
-                        placeholder="وصف المصروف" className="flex-1 bg-[#111827] border border-[#1f2937] rounded-xl px-3 py-2 text-white text-sm text-right placeholder-gray-600 focus:outline-none" />
+                    <div key={idx} className="flex flex-col sm:flex-row gap-2 mb-2">
+                      <div className="flex gap-2 w-full sm:w-auto">
+                        <input type="text" value={e.label} onChange={ev => updateExpenseRow(idx, 'label', ev.target.value)}
+                          placeholder="وصف المصروف" className="flex-1 sm:w-full bg-[#111827] border border-[#1f2937] rounded-xl px-3 py-2 text-white text-sm text-right placeholder-gray-600 focus:outline-none" />
+                      </div>
+                      <div className="flex gap-2 w-full sm:w-auto">
+                        <input type="number" value={e.amount} onChange={ev => updateExpenseRow(idx, 'amount', ev.target.value)}
+                          placeholder="المبلغ" className="flex-1 sm:w-24 bg-[#111827] border border-[#1f2937] rounded-xl px-3 py-2 text-white text-sm text-right placeholder-gray-600 focus:outline-none" />
+                        <button onClick={() => removeExpenseRow(idx)} className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0"><X size={14} className="text-red-400" /></button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -548,13 +552,17 @@ export function BusinessPage() {
                 {/* Members */}
                 <p className="text-gray-400 text-xs mb-3 text-right font-medium">أعضاء الفريق (الأول هو المالك)</p>
                 {teamMembers.map((m, idx) => (
-                  <div key={idx} className="flex gap-2 mb-2 items-center">
-                    {idx > 0 && <button onClick={() => setTeamMembers(prev => prev.filter((_, i) => i !== idx))} className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0"><X size={14} className="text-red-400" /></button>}
-                    {idx === 0 && <div className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center shrink-0 text-sm">👑</div>}
-                    <input value={m.contribution} onChange={e => setTeamMembers(prev => prev.map((mem, i) => i === idx ? { ...mem, contribution: e.target.value } : mem))}
-                      placeholder="المبلغ" type="number" className="w-24 bg-[#111827] border border-[#1f2937] rounded-xl px-3 py-2 text-white text-sm text-right placeholder-gray-600 focus:outline-none" />
-                    <input value={m.name} onChange={e => setTeamMembers(prev => prev.map((mem, i) => i === idx ? { ...mem, name: e.target.value } : mem))}
-                      placeholder="الاسم" className="flex-1 bg-[#111827] border border-[#1f2937] rounded-xl px-3 py-2 text-white text-sm text-right placeholder-gray-600 focus:outline-none" />
+                  <div key={idx} className="flex flex-col sm:flex-row gap-2 mb-2 sm:items-center">
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <input value={m.name} onChange={e => setTeamMembers(prev => prev.map((mem, i) => i === idx ? { ...mem, name: e.target.value } : mem))}
+                        placeholder="الاسم" className="flex-1 sm:w-full bg-[#111827] border border-[#1f2937] rounded-xl px-3 py-2 text-white text-sm text-right placeholder-gray-600 focus:outline-none" />
+                    </div>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <input value={m.contribution} onChange={e => setTeamMembers(prev => prev.map((mem, i) => i === idx ? { ...mem, contribution: e.target.value } : mem))}
+                        placeholder="المبلغ" type="number" className="flex-1 sm:w-24 bg-[#111827] border border-[#1f2937] rounded-xl px-3 py-2 text-white text-sm text-right placeholder-gray-600 focus:outline-none" />
+                      {idx > 0 && <button onClick={() => setTeamMembers(prev => prev.filter((_, i) => i !== idx))} className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0"><X size={14} className="text-red-400" /></button>}
+                      {idx === 0 && <div className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center shrink-0 text-sm">👑</div>}
+                    </div>
                   </div>
                 ))}
                 <button onClick={() => setTeamMembers(prev => [...prev, { name: '', contribution: '', phone: '' }])}

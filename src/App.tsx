@@ -13,6 +13,8 @@ import { NotificationsPanel } from './components/NotificationsPanel';
 import { SubscriptionModal } from './components/SubscriptionModal';
 import { UpdateModal } from './components/UpdateModal';
 import { supabase } from './lib/supabase';
+import { Capacitor } from '@capacitor/core';
+import { CapacitorUpdater } from '@capgo/capacitor-updater';
 import {
   LayoutDashboard, Briefcase, Heart, TrendingUp, Sparkles
 } from 'lucide-react';
@@ -34,6 +36,13 @@ function MainApp() {
   const [updateInfo, setUpdateInfo] = useState<{ version: string; changelog: string; download_url: string } | null>(null);
 
   useEffect(() => {
+    // Notify CapacitorUpdater that app is ready (only on native platforms)
+    if (Capacitor.isNativePlatform()) {
+      CapacitorUpdater.notifyAppReady()
+        .then(() => console.log('Capacitor Updater: App ready notified successfully'))
+        .catch(err => console.error('Capacitor Updater failed to notify app ready', err));
+    }
+
     const CURRENT_VERSION = '1.0.0'; // Hardcoded current version
 
     const checkUpdate = async () => {

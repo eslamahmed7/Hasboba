@@ -218,7 +218,7 @@ export function AdminDashboard() {
           <div className="p-4">
             <div className="flex flex-col gap-3 mb-6 bg-[#0f1520] p-4 rounded-2xl border border-[#1f2937]">
               <h3 className="text-white text-sm font-bold mb-1">إضافة كود جديد</h3>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   value={promoCode}
                   onChange={e => setPromoCode(e.target.value)}
@@ -236,31 +236,31 @@ export function AdminDashboard() {
                     }
                     setPromoCode(`BOBA${discount}-${randomStr}`);
                   }}
-                  className="px-3 bg-yellow-500/10 text-yellow-500 rounded-xl text-xs font-bold border border-yellow-500/20 hover:bg-yellow-500/20 transition-colors flex items-center gap-1 shrink-0"
+                  className="px-3 py-2 sm:py-0 justify-center bg-yellow-500/10 text-yellow-500 rounded-xl text-xs font-bold border border-yellow-500/20 hover:bg-yellow-500/20 transition-colors flex items-center gap-1 shrink-0"
                 >
                   <Sparkles size={12} /> توليد تلقائي
                 </button>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="number"
                   value={promoDiscount}
                   onChange={e => setPromoDiscount(e.target.value)}
                   placeholder="نسبة الخصم %"
-                  className="w-1/2 bg-[#1a2535] border border-[#2d3b4e] rounded-xl px-3 py-2 text-white text-sm focus:outline-none"
+                  className="w-full sm:w-1/2 bg-[#1a2535] border border-[#2d3b4e] rounded-xl px-3 py-2 text-white text-sm focus:outline-none"
                 />
                 <input
                   type="number"
                   value={promoDays}
                   onChange={e => setPromoDays(e.target.value)}
                   placeholder="صلاحية بالأيام"
-                  className="w-1/2 bg-[#1a2535] border border-[#2d3b4e] rounded-xl px-3 py-2 text-white text-sm focus:outline-none"
+                  className="w-full sm:w-1/2 bg-[#1a2535] border border-[#2d3b4e] rounded-xl px-3 py-2 text-white text-sm focus:outline-none"
                 />
               </div>
 
               <div className="flex flex-col gap-1.5 mt-1 bg-[#161d2a] p-3 rounded-xl border border-[#2d3b4e]/50">
                 <span className="text-gray-400 text-xs font-bold block mb-0.5">حد الاستخدام:</span>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <button
                     type="button"
                     onClick={() => setPromoLimitType('unlimited')}
@@ -285,7 +285,7 @@ export function AdminDashboard() {
                   </button>
                 </div>
                 {promoLimitType === 'limited' && (
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
                     <span className="text-gray-400 text-xs shrink-0">أقصى عدد للاستخدام:</span>
                     <input
                       type="number"

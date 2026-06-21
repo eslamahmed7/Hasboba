@@ -152,26 +152,28 @@ export function SavingsPage() {
                         exit={{ height: 0, opacity: 0 }}
                         className="mt-3 overflow-hidden"
                       >
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setShowAddFunds(null)}
-                            className="px-3 py-2 bg-[#1f2937] rounded-xl text-gray-400 text-sm"
-                          >
-                            إلغاء
-                          </button>
-                          <button
-                            onClick={() => handleAddFunds(goal.id)}
-                            className="flex-1 py-2 bg-[#4ade80] text-black rounded-xl text-sm font-bold"
-                          >
-                            تأكيد
-                          </button>
+                        <div className="flex flex-col gap-2">
                           <input
                             type="number"
                             value={fundAmount}
                             onChange={e => setFundAmount(e.target.value)}
                             placeholder="المبلغ"
-                            className="flex-1 bg-[#0b1120] border border-[#1f2937] rounded-xl px-3 py-2 text-white text-sm text-right focus:outline-none"
+                            className="w-full bg-[#0b1120] border border-[#1f2937] rounded-xl px-3 py-2 text-white text-sm text-right focus:outline-none"
                           />
+                          <div className="flex gap-2 w-full">
+                            <button
+                              onClick={() => setShowAddFunds(null)}
+                              className="flex-1 py-2 bg-[#1f2937] rounded-xl text-gray-400 text-sm font-bold"
+                            >
+                              إلغاء
+                            </button>
+                            <button
+                              onClick={() => handleAddFunds(goal.id)}
+                              className="flex-1 py-2 bg-[#4ade80] text-black rounded-xl text-sm font-bold"
+                            >
+                              تأكيد
+                            </button>
+                          </div>
                         </div>
                       </motion.div>
                     )}
