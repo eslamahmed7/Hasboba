@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppProvider, useApp } from './context/AppContext';
 import { LanguageProvider } from './context/LanguageContext';
@@ -11,6 +11,8 @@ import { AssetsPage } from './pages/AssetsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { NotificationsPanel } from './components/NotificationsPanel';
 import { SubscriptionModal } from './components/SubscriptionModal';
+import { UpdateModal } from './components/UpdateModal';
+import { supabase } from './lib/supabase';
 import {
   LayoutDashboard, Briefcase, Heart, TrendingUp, Sparkles
 } from 'lucide-react';
@@ -29,6 +31,30 @@ function MainApp() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<{ version: string; changelog: string; download_url: string } | null>(null);
+
+  useEffect(() => {
+    const CURRENT_VERSION = '1.0.0'; // Hardcoded current version
+
+    const checkUpdate = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('app_version')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+          
+        if (data && data.version && data.version !== CURRENT_VERSION) {
+           setUpdateInfo(data);
+        }
+      } catch (err) {
+        console.error('Failed to check for updates', err);
+      }
+    };
+    
+    checkUpdate();
+  }, []);
 
   if (!user) return <OnboardingScreen />;
 
@@ -93,6 +119,18 @@ function MainApp() {
         <AnimatePresence>
           {showSubscription && (
             <SubscriptionModal onClose={() => setShowSubscription(false)} />
+          )}
+        </AnimatePresence>
+
+        {/* Update Modal */}
+        <AnimatePresence>
+          {updateInfo && (
+            <UpdateModal
+              version={updateInfo.version}
+              changelog={updateInfo.changelog}
+              downloadUrl={updateInfo.download_url}
+              onClose={() => setUpdateInfo(null)}
+            />
           )}
         </AnimatePresence>
 
