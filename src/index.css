@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Cairo', 'Inter', system-ui, -apple-system, sans-serif;
+    direction: rtl;
+  }
+
+  body {
+    background-color: #070a10;
+    color: #ffffff;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Light Mode Overrides */
+  html.light body {
+    background-color: #f3f4f6;
+    color: #111827;
+  }
+
+  html.light .bg-\[\#070a10\],
+  html.light .bg-\[\#0b1120\],
+  html.light .bg-\[\#0a0d13\] {
+    background-color: #f3f4f6 !important;
+  }
+
+  html.light .bg-\[\#111827\],
+  html.light .bg-\[\#0d1117\] {
+    background-color: #ffffff !important;
+  }
+
+  html.light .bg-\[\#1f2937\],
+  html.light .bg-\[\#1a2535\] {
+    background-color: #e5e7eb !important;
+  }
+
+  html.light .border-\[\#1f2937\] {
+    border-color: #e5e7eb !important;
+  }
+
+  html.light .text-white {
+    color: #111827 !important;
+  }
+
+  html.light .text-gray-300 {
+    color: #374151 !important;
+  }
+
+  html.light .text-gray-400 {
+    color: #4b5563 !important;
+  }
+
+  html.light .text-gray-500 {
+    color: #6b7280 !important;
+  }
+
+  html.light .text-gray-600 {
+    color: #9ca3af !important;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+
+  .glow-green {
+    box-shadow: 0 0 20px rgba(74, 222, 128, 0.4), 0 0 40px rgba(74, 222, 128, 0.2);
+  }
+
+  .glow-green-sm {
+    box-shadow: 0 0 12px rgba(74, 222, 128, 0.3);
+  }
+
+  .glow-red-sm {
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+  }
+
+  .card {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 16px;
+  }
+
+  .card-sm {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 12px;
+  }
+}
